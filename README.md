@@ -240,23 +240,50 @@ The final Machine Learning models use **8 environmental features**:
 
 ### Data Sources Used
 
-The project integrates several types of data:
+## 🌍 Data Sources
 
-**🌧️ Climate Data**
+The project combines historical climate, disaster-event and terrain information for Sri Lanka.
+
+### 🌧️ Climate Data
+
+Daily district-level climate data were used for the period **2007–2020**.
+
+The climate variables include:
+
 - Daily precipitation
 - Mean temperature
 - Dew-point temperature
+- Derived relative humidity
+- 24-hour accumulated rainfall
+- 72-hour accumulated rainfall
+- 7-day accumulated rainfall
 
-**🚨 Historical Disaster Data**
-- Flood events
-- Landslide events
+Climate dataset repository:
 
-**🗺️ Terrain Data**
-- Elevation
-- Terrain slope
-- District boundaries
+🔗 [Sri Lanka District Climate Data](https://github.com/hsandamini/sri-lanka-district-climate-data)
 
----
+### 🚨 Historical Disaster Data
+
+Historical flood and landslide event records were obtained from the **DesInventar disaster information system**.
+
+The records were cleaned and transformed into district-day binary target variables:
+
+- `Flood`
+- `Landslide`
+- `Any_Disaster`
+
+### 🛰️ Terrain Data
+
+Terrain information was derived from **NASADEM Digital Elevation Model (DEM)** data.
+
+The elevation raster was processed to calculate:
+
+- Mean district elevation
+- Mean district slope
+
+District boundaries were then used to aggregate terrain information at district level.
+
+> **Data preparation note:** Colombo was excluded from the final modelling dataset because its rainfall observations were unavailable for the study period. The final dataset therefore contains **122,736 district-day observations across 24 districts**.
 
 # 🗓️ Model Development Strategy
 
@@ -416,15 +443,41 @@ Possible future developments include:
 
 # 👥 Team Project
 
-This project was developed collaboratively as part of the:
+## 👥 Project Team
 
-### 🎓 Essentials of Artificial Intelligence
+This project was developed collaboratively as part of the **Essentials of Artificial Intelligence** module at the **General Sir John Kotelawala Defence University (KDU)**.
 
-Individual team contributions include work across:
+### Group 18
 
-**Data Collection • Data Preprocessing • Feature Engineering • Machine Learning • Fuzzy Logic • Rule-Based Reasoning • GUI Development • Testing • Documentation**
+| Team Member | Degree Area |
+|---|---|
+| NAH Dilshan | Data Science and Business Analytics |
+| GPN Kaushalya | Information Systems |
+| AM Weerasinghe | Information Technology |
+| DKNL Jayawardhana | Computer Science |
 
----
+The project involved collaborative work across:
+
+**Data Collection • Data Preprocessing • Feature Engineering • Terrain Processing • Machine Learning • Fuzzy Logic • Rule-Based Reasoning • Streamlit Development • Testing • Documentation**
+
+## 📌 Project Status
+
+**Version:** 1.0  
+**Status:** ✅ Prototype Completed
+
+The current version includes:
+
+- ✅ Flood Random Forest model
+- ✅ Landslide Random Forest model
+- ✅ Fuzzy risk assessment
+- ✅ Rainfall-based rule reasoning
+- ✅ Integrated LOW / MEDIUM / HIGH risk classification
+- ✅ District terrain information
+- ✅ Streamlit graphical interface
+- ✅ Online Streamlit deployment
+- ✅ Historical test-data evaluation
+
+Future development may include real-time weather integration, finer spatial resolution, additional training data and expert validation.
 
 # ⚠️ Disclaimer
 
