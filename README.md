@@ -11,6 +11,11 @@
 ![Streamlit](https://img.shields.io/badge/Interface-Streamlit-red?logo=streamlit)
 ![Status](https://img.shields.io/badge/Status-Academic%20Prototype-orange)
 
+## 🚀 Live Demo
+
+🌐 **Try the deployed application here:**  
+[Open Flood & Landslide Risk Prediction System](PASTE-YOUR-STREAMLIT-LINK-HERE)
+
 </div>
 
 ---
