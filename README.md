@@ -2,7 +2,7 @@
 
 # 🌧️ AI-Based Flood & Landslide Risk Prediction System
 
-### 🇱🇰 An AI-powered disaster risk prediction and early warning prototype for Sri Lanka
+### An AI-powered disaster risk prediction and early warning prototype for Sri Lanka
 
 **Machine Learning • Fuzzy Logic • Rule-Based Reasoning • Streamlit**
 
