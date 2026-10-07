@@ -2235,47 +2235,5 @@ for file in gui_files:
 #     "official warnings issued by Sri Lankan authorities."
 # )
 
-import os
 
-print(
-    "app.py ->",
-    "READY" if os.path.exists("/content/app.py") else "MISSING"
-)
-
-!npm install -g localtunnel
-
-!streamlit run /content/app.py --server.port 8501 &>/content/logs.txt &
-
-import time
-time.sleep(5)
-
-!curl -s http://localhost:8501 > /dev/null && echo "Streamlit is running!"
-
-!curl -s https://loca.lt/mytunnelpassword
-
-!lt --port 8501
-
-!lt --port 8501
-
-!curl -I http://localhost:8501
-
-!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /content/cloudflared
-!chmod +x /content/cloudflared
-
-!nohup /content/cloudflared tunnel --url http://localhost:8501 > /content/cloudflared.log 2>&1 &
-
-!curl -I http://localhost:8501
-
-!pkill -f streamlit
-
-!streamlit run /content/app.py --server.port 8501 --server.address 0.0.0.0 > /content/streamlit.log 2>&1 &
-
-import time
-time.sleep(5)
-
-!curl -I http://localhost:8501
-
-!pkill -f cloudflared
-
-!/content/cloudflared tunnel --url http://127.0.0.1:8501
 
