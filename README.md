@@ -14,7 +14,7 @@
 ## 🚀 Live Demo
 
 🌐 **Try the deployed application here:**  
-[Open Flood & Landslide Risk Prediction System](PASTE-YOUR-STREAMLIT-LINK-HERE)
+[Open Flood & Landslide Risk Prediction System]([PASTE-YOUR-STREAMLIT-LINK-HERE](https://sri-lanka-flood-landslide-risk-prediction.streamlit.app/))
 
 </div>
 
