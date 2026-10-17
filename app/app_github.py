@@ -5,7 +5,8 @@ import numpy as np
 import joblib
 import skfuzzy as fuzz
 from pathlib import Path
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 # =========================================================
 # PAGE SETTINGS
 # =========================================================
@@ -495,6 +496,17 @@ if st.button(
         slope
     )
     st.subheader("Prediction Results")
+
+        # Display prediction generation time in Sri Lanka
+    prediction_time = datetime.now(
+        ZoneInfo("Asia/Colombo")
+    )
+
+    st.caption(
+        "🕒 Prediction generated on: "
+        + prediction_time.strftime("%d %B %Y, %I:%M:%S %p")
+        + " (Sri Lanka Time)"
+    )
 
     col1, col2 = st.columns(2)
 
