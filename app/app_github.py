@@ -446,6 +446,18 @@ if st.button(
             "The dew point temperature is higher than the mean "
             "air temperature. Please verify your weather inputs."
         )
+            # Check rainfall input consistency
+    if rainfall_24h > rainfall_72h:
+        st.warning(
+            "The 24-hour rainfall exceeds the 72-hour rainfall. "
+            "Please verify your rainfall inputs."
+        )
+
+    if rainfall_72h > rainfall_7day:
+        st.warning(
+            "The 72-hour rainfall exceeds the 7-day rainfall. "
+            "Please verify your rainfall inputs."
+        )
 
     result = predict_risk(
         rainfall_24h,
