@@ -41,8 +41,24 @@ def load_terrain():
     return pd.read_csv(DATA_DIR / "district_terrain.csv")
 
 
-flood_model, landslide_model, features = load_models()
-terrain = load_terrain()
+# Load prediction models and terrain data safely
+try:
+    flood_model, landslide_model, features = load_models()
+    terrain = load_terrain()
+
+except FileNotFoundError as e:
+    st.error(
+        "Required model or dataset file is missing. "
+        "Please check the models and data folders."
+    )
+    st.stop()
+
+except Exception as e:
+    st.error(
+        "Unable to initialize the prediction system. "
+        "Please check the application setup."
+    )
+    st.stop()
 
 # =========================================================
 # FUZZY MEMBERSHIP FUNCTIONS
