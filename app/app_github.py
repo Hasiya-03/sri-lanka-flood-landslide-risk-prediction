@@ -382,10 +382,13 @@ with col1:
     )
 
     mean_temp = st.number_input(
-        "Mean Temperature (°C)",
-        value=27.0,
-        step=0.1
-    )
+    "Mean Temperature (°C)",
+    min_value=-10.0,
+    max_value=50.0,
+    value=27.0,
+    step=0.1,
+    help="Enter the mean air temperature in degrees Celsius."
+)
 
 
 with col2:
@@ -398,9 +401,12 @@ with col2:
     )
 
     dew_temp = st.number_input(
-        "Dew Point Temperature (°C)",
-        value=23.0,
-        step=0.1
+         "Dew Point Temperature (°C)",
+         min_value=-10.0,
+         max_value=50.0,
+         value=23.0,
+         step=0.1,
+         help="Enter the dew point temperature in degrees Celsius."
     )
 
 
