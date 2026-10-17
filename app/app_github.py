@@ -440,6 +440,13 @@ if st.button(
     use_container_width=True
 ):
 
+    # Check weather input consistency
+    if dew_temp > mean_temp:
+        st.warning(
+            "The dew point temperature is higher than the mean "
+            "air temperature. Please verify your weather inputs."
+        )
+
     result = predict_risk(
         rainfall_24h,
         rainfall_72h,
@@ -450,7 +457,6 @@ if st.button(
         elevation,
         slope
     )
-
     st.subheader("Prediction Results")
 
     col1, col2 = st.columns(2)
