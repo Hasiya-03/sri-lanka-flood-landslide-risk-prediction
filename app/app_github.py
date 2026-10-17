@@ -367,6 +367,25 @@ with col2:
         f"{slope:.1f}°"
     )
 
+# Default weather input values
+DEFAULT_WEATHER = {
+    "rainfall_24h": 20.0,
+    "rainfall_72h": 50.0,
+    "rainfall_7day": 100.0,
+    "mean_temp": 27.0,
+    "dew_temp": 23.0,
+    "humidity": 80.0
+}
+
+# Initialize weather input state
+for key, default in DEFAULT_WEATHER.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+
+def reset_weather_inputs():
+    for key, default in DEFAULT_WEATHER.items():
+        st.session_state[key] = default
 
 st.subheader("🌦️ Weather Information")
 
@@ -375,17 +394,17 @@ col1, col2, col3 = st.columns(3)
 with col1:
 
     rainfall_24h = st.number_input(
-        "Rainfall - Last 24 Hours (mm)",
-        min_value=0.0,
-        value=20.0,
-        step=1.0
-    )
+    "Rainfall - Last 24 Hours (mm)",
+    min_value=0.0,
+    key="rainfall_24h",
+    step=1.0
+)
 
     mean_temp = st.number_input(
     "Mean Temperature (°C)",
     min_value=-10.0,
     max_value=50.0,
-    value=27.0,
+    key="mean_temp",
     step=0.1,
     help="Enter the mean air temperature in degrees Celsius."
 )
@@ -394,38 +413,44 @@ with col1:
 with col2:
 
     rainfall_72h = st.number_input(
-        "Rainfall - Last 72 Hours (mm)",
-        min_value=0.0,
-        value=50.0,
-        step=1.0
-    )
+    "Rainfall - Last 72 Hours (mm)",
+    min_value=0.0,
+    key="rainfall_72h",
+    step=1.0
+)
 
     dew_temp = st.number_input(
-         "Dew Point Temperature (°C)",
-         min_value=-10.0,
-         max_value=50.0,
-         value=23.0,
-         step=0.1,
-         help="Enter the dew point temperature in degrees Celsius."
-    )
+    "Dew Point Temperature (°C)",
+    min_value=-10.0,
+    max_value=50.0,
+    key="dew_temp",
+    step=0.1,
+    help="Enter the dew point temperature in degrees Celsius."
+)
 
 
 with col3:
 
     rainfall_7day = st.number_input(
-        "Rainfall - Last 7 Days (mm)",
-        min_value=0.0,
-        value=100.0,
-        step=1.0
-    )
+    "Rainfall - Last 7 Days (mm)",
+    min_value=0.0,
+    key="rainfall_7day",
+    step=1.0
+)
 
     humidity = st.number_input(
-        "Relative Humidity (%)",
-        min_value=0.0,
-        max_value=100.0,
-        value=80.0,
-        step=1.0
-    )
+    "Relative Humidity (%)",
+    min_value=0.0,
+    max_value=100.0,
+    key="humidity",
+    step=1.0
+)
+    # Reset weather inputs
+st.button(
+    "🔄 Reset Weather Inputs",
+    on_click=reset_weather_inputs,
+    use_container_width=True
+)
 
 
 st.divider()
