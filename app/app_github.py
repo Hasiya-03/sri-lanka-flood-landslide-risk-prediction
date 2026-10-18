@@ -5,7 +5,8 @@ import numpy as np
 import joblib
 import skfuzzy as fuzz
 from pathlib import Path
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 # =========================================================
 # PAGE SETTINGS
 # =========================================================
@@ -41,8 +42,24 @@ def load_terrain():
     return pd.read_csv(DATA_DIR / "district_terrain.csv")
 
 
-flood_model, landslide_model, features = load_models()
-terrain = load_terrain()
+# Load prediction models and terrain data safely
+try:
+    flood_model, landslide_model, features = load_models()
+    terrain = load_terrain()
+
+except FileNotFoundError as e:
+    st.error(
+        "Required model or dataset file is missing. "
+        "Please check the models and data folders."
+    )
+    st.stop()
+
+except Exception as e:
+    st.error(
+        "Unable to initialize the prediction system. "
+        "Please check the application setup."
+    )
+    st.stop()
 
 # =========================================================
 # FUZZY MEMBERSHIP FUNCTIONS
@@ -351,6 +368,25 @@ with col2:
         f"{slope:.1f}°"
     )
 
+# Default weather input values
+DEFAULT_WEATHER = {
+    "rainfall_24h": 20.0,
+    "rainfall_72h": 50.0,
+    "rainfall_7day": 100.0,
+    "mean_temp": 27.0,
+    "dew_temp": 23.0,
+    "humidity": 80.0
+}
+
+# Initialize weather input state
+for key, default in DEFAULT_WEATHER.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+
+def reset_weather_inputs():
+    for key, default in DEFAULT_WEATHER.items():
+        st.session_state[key] = default
 
 st.subheader("🌦️ Weather Information")
 
@@ -359,51 +395,63 @@ col1, col2, col3 = st.columns(3)
 with col1:
 
     rainfall_24h = st.number_input(
-        "Rainfall - Last 24 Hours (mm)",
-        min_value=0.0,
-        value=20.0,
-        step=1.0
-    )
+    "Rainfall - Last 24 Hours (mm)",
+    min_value=0.0,
+    key="rainfall_24h",
+    step=1.0
+)
 
     mean_temp = st.number_input(
-        "Mean Temperature (°C)",
-        value=27.0,
-        step=0.1
-    )
+    "Mean Temperature (°C)",
+    min_value=-10.0,
+    max_value=50.0,
+    key="mean_temp",
+    step=0.1,
+    help="Enter the mean air temperature in degrees Celsius."
+)
 
 
 with col2:
 
     rainfall_72h = st.number_input(
-        "Rainfall - Last 72 Hours (mm)",
-        min_value=0.0,
-        value=50.0,
-        step=1.0
-    )
+    "Rainfall - Last 72 Hours (mm)",
+    min_value=0.0,
+    key="rainfall_72h",
+    step=1.0
+)
 
     dew_temp = st.number_input(
-        "Dew Point Temperature (°C)",
-        value=23.0,
-        step=0.1
-    )
+    "Dew Point Temperature (°C)",
+    min_value=-10.0,
+    max_value=50.0,
+    key="dew_temp",
+    step=0.1,
+    help="Enter the dew point temperature in degrees Celsius."
+)
 
 
 with col3:
 
     rainfall_7day = st.number_input(
-        "Rainfall - Last 7 Days (mm)",
-        min_value=0.0,
-        value=100.0,
-        step=1.0
-    )
+    "Rainfall - Last 7 Days (mm)",
+    min_value=0.0,
+    key="rainfall_7day",
+    step=1.0
+)
 
     humidity = st.number_input(
-        "Relative Humidity (%)",
-        min_value=0.0,
-        max_value=100.0,
-        value=80.0,
-        step=1.0
-    )
+    "Relative Humidity (%)",
+    min_value=0.0,
+    max_value=100.0,
+    key="humidity",
+    step=1.0
+)
+    # Reset weather inputs
+st.button(
+    "🔄 Reset Weather Inputs",
+    on_click=reset_weather_inputs,
+    use_container_width=True
+)
 
 
 st.divider()
@@ -418,6 +466,25 @@ if st.button(
     use_container_width=True
 ):
 
+    # Check weather input consistency
+    if dew_temp > mean_temp:
+        st.warning(
+            "The dew point temperature is higher than the mean "
+            "air temperature. Please verify your weather inputs."
+        )
+            # Check rainfall input consistency
+    if rainfall_24h > rainfall_72h:
+        st.warning(
+            "The 24-hour rainfall exceeds the 72-hour rainfall. "
+            "Please verify your rainfall inputs."
+        )
+
+    if rainfall_72h > rainfall_7day:
+        st.warning(
+            "The 72-hour rainfall exceeds the 7-day rainfall. "
+            "Please verify your rainfall inputs."
+        )
+
     result = predict_risk(
         rainfall_24h,
         rainfall_72h,
@@ -428,8 +495,18 @@ if st.button(
         elevation,
         slope
     )
-
     st.subheader("Prediction Results")
+
+        # Display prediction generation time in Sri Lanka
+    prediction_time = datetime.now(
+        ZoneInfo("Asia/Colombo")
+    )
+
+    st.caption(
+        "🕒 Prediction generated on: "
+        + prediction_time.strftime("%d %B %Y, %I:%M:%S %p")
+        + " (Sri Lanka Time)"
+    )
 
     col1, col2 = st.columns(2)
 
