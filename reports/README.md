@@ -1,1 +1,5 @@
-Project documentation and final report
+## Project Documentation
+
+The final project report includes the system architecture, AI techniques, implementation details, model evaluation results, limitations, and individual contributions.
+
+[View Final Project Report](reports/Final_report.pdf)
