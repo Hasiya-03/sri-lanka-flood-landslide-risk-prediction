@@ -7,6 +7,17 @@ import skfuzzy as fuzz
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle
+)
 # =========================================================
 # PAGE SETTINGS
 # =========================================================
@@ -316,7 +327,80 @@ def predict_risk(
         "nbro_warning": nbro_warning,
         "overall_risk": overall_risk
     }
+def generate_prediction_pdf(prediction_data):
+    buffer = BytesIO()
 
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=35,
+        leftMargin=35,
+        topMargin=40,
+        bottomMargin=40
+    )
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(
+        Paragraph(
+            "Sri Lanka Flood & Landslide Risk Prediction",
+            styles["Title"]
+        )
+    )
+
+    elements.append(
+        Paragraph(
+            "Disaster Risk Assessment Report",
+            styles["Heading2"]
+        )
+    )
+
+    elements.append(Spacer(1, 16))
+
+    # Use the same prediction values as the CSV export
+    table_data = [["Parameter", "Value"]]
+
+    for key, value in prediction_data.items():
+        table_data.append([str(key), str(value)])
+
+    table = Table(
+        table_data,
+        colWidths=[240, 270],
+        repeatRows=1,
+        hAlign="LEFT"
+    )
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DCEAF3")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+        ("TOPPADDING", (0, 0), (-1, 0), 10),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+
+    elements.append(table)
+    elements.append(Spacer(1, 20))
+
+    elements.append(
+        Paragraph(
+            "Disclaimer: This is an academic prototype. "
+            "Predictions do not replace official disaster warnings "
+            "issued by Sri Lankan authorities.",
+            styles["BodyText"]
+        )
+    )
+
+    doc.build(elements)
+
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    return pdf_bytes
 
 # =========================================================
 # USER INTERFACE
@@ -591,7 +675,65 @@ if st.button(
         "**Rule-Based Rainfall Status:**",
         result["nbro_warning"]
     )
+    # Prepare prediction results for CSV download
+    prediction_data = {
+        "Prediction Time": prediction_time.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        "District": selected_district,
+        "Rainfall 24h (mm)": rainfall_24h,
+        "Rainfall 72h (mm)": rainfall_72h,
+        "Rainfall 7day (mm)": rainfall_7day,
+        "Mean Temperature (C)": mean_temp,
+        "Dew Point Temperature (C)": dew_temp,
+        "Relative Humidity (%)": humidity,
+        "Mean Elevation (m)": elevation,
+        "Mean Slope (degrees)": slope,
+        "Flood Risk": result["flood_risk"],
+        "Flood ML Probability (%)": round(
+            result["flood_probability"] * 100, 2
+        ),
+        "Flood Fuzzy Score": result["flood_score"],
+        "Landslide Risk": result["landslide_risk"],
+        "Landslide ML Probability (%)": round(
+            result["landslide_probability"] * 100, 2
+        ),
+        "Landslide Fuzzy Score": result["landslide_score"],
+        "Rule-Based Rainfall Status": result["nbro_warning"],
+        "Overall Disaster Risk": result["overall_risk"]
+    }
 
+        # Convert prediction data into CSV format
+    prediction_df = pd.DataFrame([prediction_data])
+    csv_data = prediction_df.to_csv(index=False).encode("utf-8-sig")
+
+    # Generate PDF report
+    pdf_data = generate_prediction_pdf(prediction_data)
+
+    # Create two columns for download buttons
+    col_csv, col_pdf = st.columns(2, gap="medium")
+
+    # LEFT SIDE - CSV Download
+    with col_csv:
+        st.download_button(
+            label="📥 Download Prediction Results (CSV)",
+            data=csv_data,
+            file_name="disaster_risk_prediction.csv",
+            mime="text/csv",
+            use_container_width=True,
+            on_click="ignore"
+        )
+
+    # RIGHT SIDE - PDF Download
+    with col_pdf:
+        st.download_button(
+            label="📄 Download Prediction Results (PDF)",
+            data=pdf_data,
+            file_name="disaster_risk_report.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            on_click="ignore"
+        )
 
 st.divider()
 
