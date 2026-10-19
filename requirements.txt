@@ -5,3 +5,4 @@ scikit-learn
 scikit-fuzzy
 joblib
 reportlab
+plotly>=5.18
