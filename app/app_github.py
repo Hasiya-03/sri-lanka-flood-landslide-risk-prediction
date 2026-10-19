@@ -1,4 +1,4 @@
-
+import plotly.graph_objects as go
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -18,6 +18,56 @@ from reportlab.platypus import (
     Table,
     TableStyle
 )
+def create_probability_gauge(probability, threshold, title, color):
+    probability_pct = float(probability) * 100
+    threshold_pct = threshold * 100
+
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=probability_pct,
+            number={
+                "suffix": "%",
+                "valueformat": ".2f",
+                "font": {"size": 30, "color": "white"},
+            },
+            title={
+                "text": title,
+                "font": {"size": 17, "color": "white"},
+            },
+            gauge={
+                "axis": {
+                    "range": [0, 100],
+                    "tickcolor": "white",
+                    "tickfont": {"color": "white"},
+                },
+                "bar": {"color": color, "thickness": 0.32},
+                "bgcolor": "rgba(0,0,0,0)",
+                "borderwidth": 0,
+                "steps": [
+                    {
+                        "range": [0, 100],
+                        "color": "#303642",
+                    }
+                ],
+                "threshold": {
+                    "line": {"color": "#FFFFFF", "width": 4},
+                    "thickness": 0.8,
+                    "value": threshold_pct,
+                },
+            },
+        )
+    )
+
+    fig.update_layout(
+        height=260,
+        margin=dict(l=25, r=25, t=60, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        font={"color": "white"},
+    )
+
+    return fig
+
 # =========================================================
 # PAGE SETTINGS
 # =========================================================
@@ -675,6 +725,81 @@ if st.button(
         "**Rule-Based Rainfall Status:**",
         result["nbro_warning"]
     )
+
+        # =====================================================
+    # NEW: AI PREDICTION RESULTS - PROBABILITY GAUGES
+    # =====================================================
+
+    st.divider()
+    st.subheader("🧠 AI Prediction Results")
+
+    st.caption(
+        "Random Forest probabilities, fuzzy logic scores "
+        "and final risk classifications."
+    )
+
+    flood_col, landslide_col = st.columns(2)
+
+    risk_colors = {
+        "LOW": "#22C55E",
+        "MEDIUM": "#F59E0B",
+        "HIGH": "#EF4444"
+    }
+
+    # FLOOD GAUGE
+    with flood_col:
+        st.plotly_chart(
+            create_probability_gauge(
+                probability=result["flood_probability"],
+                threshold=0.70,
+                title="🌊 Flood Prediction (Random Forest)",
+                color="#22C55E" if result["flood_probability"] < 0.50 else (
+    "#F59E0B" if result["flood_probability"] < 0.70 else "#EF4444"
+)
+            ),
+            use_container_width=True
+        )
+
+        st.metric(
+            "Flood Fuzzy Score",
+            f'{result["flood_score"]:.2f}'
+        )
+
+        st.metric(
+            "Final Flood Risk",
+            result["flood_risk"]
+        )
+
+    # LANDSLIDE GAUGE
+    with landslide_col:
+        st.plotly_chart(
+            create_probability_gauge(
+                probability=result["landslide_probability"],
+                threshold=0.80,
+                title="⛰️ Landslide Prediction (Random Forest)",
+                color="#22C55E" if result["landslide_probability"] < 0.50 else (
+    "#F59E0B" if result["landslide_probability"] < 0.80 else "#EF4444"
+)
+            ),
+            use_container_width=True
+        )
+
+        st.metric(
+            "Landslide Fuzzy Score",
+            f'{result["landslide_score"]:.2f}'
+        )
+
+        st.metric(
+            "Final Landslide Risk",
+            result["landslide_risk"]
+        )
+
+    st.caption(
+        "Gauge values represent machine learning probabilities. "
+        "Final risk classifications also consider fuzzy logic "
+        "and rule-based rainfall reasoning."
+    )
+    
     # Prepare prediction results for CSV download
     prediction_data = {
         "Prediction Time": prediction_time.strftime(
