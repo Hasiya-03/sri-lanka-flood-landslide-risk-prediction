@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import joblib
 import skfuzzy as fuzz
+from safety_recommendations import get_safety_recommendations
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -724,6 +725,43 @@ if st.button(
     st.write(
         "**Rule-Based Rainfall Status:**",
         result["nbro_warning"]
+    )
+
+    # ==============================================
+    # Disaster Safety Recommendations
+    # ==============================================
+
+    st.divider()
+    st.subheader("🛡️ Disaster Safety Recommendations")
+
+    col_flood, col_landslide = st.columns(2)
+
+    with col_flood:
+        st.markdown("### 🌊 Flood Safety")
+
+        flood_tips = get_safety_recommendations(
+            "flood",
+            result["flood_risk"]
+        )
+
+        for tip in flood_tips:
+            st.write("•", tip)
+
+    with col_landslide:
+        st.markdown("### ⛰️ Landslide Safety")
+
+        landslide_tips = get_safety_recommendations(
+            "landslide",
+            result["landslide_risk"]
+        )
+
+        for tip in landslide_tips:
+            st.write("•", tip)
+
+    st.info(
+        "These recommendations provide general safety "
+        "guidance only. Always follow official disaster "
+        "warnings from Sri Lankan authorities."
     )
 
         # =====================================================
