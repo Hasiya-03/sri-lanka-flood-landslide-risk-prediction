@@ -1,11 +1,15 @@
+"""Interactive district-centre map for Sri Lanka DisasterWatch.
 
+The marker shows an approximate district centre, not a hazard-zone polygon.
+"""
+
+from pathlib import Path
+import html
 import pandas as pd
 import folium
 import streamlit as st
 from streamlit_folium import st_folium
-from pathlib import Path
 
-# Approximate district-centre coordinates for map markers
 DISTRICT_COORDINATES = {
     "ampara": (7.30, 81.67),
     "anuradhapura": (8.31, 80.40),
@@ -31,75 +35,55 @@ DISTRICT_COORDINATES = {
     "puttalam": (8.04, 79.84),
     "ratnapura": (6.68, 80.40),
     "trincomalee": (8.57, 81.23),
-    "vavuniya": (8.75, 80.50)
+    "vavuniya": (8.75, 80.50),
 }
+
+
+@st.cache_data(show_spinner=False)
+def _load_district_terrain():
+    data_path = Path(__file__).resolve().parent.parent / "data" / "district_terrain.csv"
+    data = pd.read_csv(data_path)
+    data["District"] = data["District"].astype(str).str.lower().str.strip()
+    return data
 
 
 def show_district_map(
     selected_district,
     flood_risk=None,
-    landslide_risk=None
+    landslide_risk=None,
+    map_key="district_terrain_map",
+    map_height=450,
 ):
-    # Load existing project terrain data
-    data_path = (
-        Path(__file__).resolve().parent.parent
-        / "data"
-        / "district_terrain.csv"
-    )
-
-    terrain_data = pd.read_csv(data_path)
-    terrain_data["District"] = (
-        terrain_data["District"].str.lower().str.strip()
-    )
-
-    district = selected_district.lower().strip()
-
+    """Show an interactive district-centre pin. Risk affects marker color only."""
+    district = str(selected_district).lower().strip()
     if district not in DISTRICT_COORDINATES:
         st.warning("Location not available for this district.")
         return
 
     latitude, longitude = DISTRICT_COORDINATES[district]
+    data = _load_district_terrain()
+    district_row = data.loc[data["District"] == district]
 
-    # Create the interactive map
-    district_map = folium.Map(
-        location=[latitude, longitude],
-        zoom_start=10,
-        tiles="OpenStreetMap"
-    )
-
-    district_row = terrain_data[
-        terrain_data["District"] == district
-    ]
-
+    popup_parts = [f"<b>District:</b> {html.escape(district.title())}"]
     if not district_row.empty:
         row = district_row.iloc[0]
+        elevation = pd.to_numeric(row.get("Mean_Elevation_m"), errors="coerce")
+        slope = pd.to_numeric(row.get("Mean_Slope_deg"), errors="coerce")
+        if pd.notna(elevation):
+            popup_parts.append(f"<b>Mean Elevation:</b> {elevation:.2f} m")
+        if pd.notna(slope):
+            popup_parts.append(f"<b>Mean Slope:</b> {slope:.2f}°")
 
-        popup_text = (
-            f"<b>District:</b> {district.title()}<br>"
-            f"<b>Mean Elevation:</b> "
-            f"{row['Mean_Elevation_m']:.2f} m<br>"
-            f"<b>Mean Slope:</b> "
-            f"{row['Mean_Slope_deg']:.2f}°"
-        )
-    else:
-        popup_text = district.title()
-
-            # Include AI prediction results when available
     if flood_risk is not None:
-        popup_text += (
-            f"<br><b>Flood Risk:</b> {flood_risk}"
-        )
-
+        popup_parts.append(f"<b>Flood Risk:</b> {html.escape(str(flood_risk))}")
     if landslide_risk is not None:
-        popup_text += (
-            f"<br><b>Landslide Risk:</b> {landslide_risk}"
-        )
+        popup_parts.append(f"<b>Landslide Risk:</b> {html.escape(str(landslide_risk))}")
 
-
-    risk_levels = [
-        str(flood_risk).upper() if flood_risk is not None else None,
-        str(landslide_risk).upper() if landslide_risk is not None else None
-    ]
+    risk_levels = {
+        str(level).upper()
+        for level in (flood_risk, landslide_risk)
+        if level is not None
+    }
     if "HIGH" in risk_levels:
         marker_color = "red"
     elif "MEDIUM" in risk_levels:
@@ -109,19 +93,23 @@ def show_district_map(
     else:
         marker_color = "blue"
 
+    district_map = folium.Map(
+        location=[latitude, longitude],
+        zoom_start=10,
+        tiles="OpenStreetMap",
+        control_scale=True,
+    )
     folium.Marker(
         location=[latitude, longitude],
-        popup=folium.Popup(popup_text, max_width=300),
+        popup=folium.Popup("<br>".join(popup_parts), max_width=300),
         tooltip=district.title(),
-        icon=folium.Icon(
-            color=marker_color,
-            icon="info-sign"
-        )
+        icon=folium.Icon(color=marker_color, icon="info-sign"),
     ).add_to(district_map)
 
     st_folium(
         district_map,
         width="stretch",
-        height=450,
-        returned_objects=[]
+        height=map_height,
+        returned_objects=[],
+        key=map_key,
     )
