@@ -504,21 +504,6 @@ with col2:
     )
 
 
-# ==========================================
-# Interactive Sri Lanka District Map
-# ==========================================
-
-st.divider()
-st.subheader("🗺️ Interactive District Map")
-
-st.write(
-    "Explore the selected district on the map "
-    "and view its terrain information."
-)
-
-show_district_map(selected_district)
-
-st.divider()
 
 # Default weather input values
 DEFAULT_WEATHER = {
