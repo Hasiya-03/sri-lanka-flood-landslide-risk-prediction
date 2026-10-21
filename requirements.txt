@@ -6,3 +6,5 @@ scikit-fuzzy
 joblib
 reportlab
 plotly>=5.18
+folium
+streamlit-folium

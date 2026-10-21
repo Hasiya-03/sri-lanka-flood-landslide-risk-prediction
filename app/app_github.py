@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import joblib
 import skfuzzy as fuzz
+from district_map import show_district_map
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -502,6 +503,23 @@ with col2:
         f"{slope:.1f}°"
     )
 
+
+# ==========================================
+# Interactive Sri Lanka District Map
+# ==========================================
+
+st.divider()
+st.subheader("🗺️ Interactive District Map")
+
+st.write(
+    "Explore the selected district on the map "
+    "and view its terrain information."
+)
+
+show_district_map(selected_district)
+
+st.divider()
+
 # Default weather input values
 DEFAULT_WEATHER = {
     "rainfall_24h": 20.0,
@@ -630,6 +648,24 @@ if st.button(
         slope
     )
     st.subheader("Prediction Results")
+
+
+    # ==========================================
+    # AI Risk Visualization on District Map
+    # ==========================================
+
+    st.markdown("### 🗺️ Predicted Disaster Risk Map")
+
+    st.write(
+        "The marker shows the selected district and "
+        "its predicted flood and landslide risk levels."
+    )
+
+    show_district_map(
+        selected_district,
+        flood_risk=result["flood_risk"],
+        landslide_risk=result["landslide_risk"]
+    )
 
         # Display prediction generation time in Sri Lanka
     prediction_time = datetime.now(
