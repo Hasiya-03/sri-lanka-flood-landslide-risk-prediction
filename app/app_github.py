@@ -1,3 +1,11 @@
+"""Sri Lanka Disaster Risk Monitor — responsive Streamlit dashboard.
+
+Preserves the original Random Forest, fuzzy scoring, rule-based logic, and exports.
+Requires the existing app/district_map.py with map_key parameter.
+"""
+
+import html
+import base64
 import plotly.graph_objects as go
 import streamlit as st
 import pandas as pd
@@ -12,72 +20,86 @@ from io import BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle
-)
-def create_probability_gauge(probability, threshold, title, color):
-    probability_pct = float(probability) * 100
-    threshold_pct = threshold * 100
-
-    fig = go.Figure(
-        go.Indicator(
-            mode="gauge+number",
-            value=probability_pct,
-            number={
-                "suffix": "%",
-                "valueformat": ".2f",
-                "font": {"size": 30, "color": "white"},
-            },
-            title={
-                "text": title,
-                "font": {"size": 17, "color": "white"},
-            },
-            gauge={
-                "axis": {
-                    "range": [0, 100],
-                    "tickcolor": "white",
-                    "tickfont": {"color": "white"},
-                },
-                "bar": {"color": color, "thickness": 0.32},
-                "bgcolor": "rgba(0,0,0,0)",
-                "borderwidth": 0,
-                "steps": [
-                    {
-                        "range": [0, 100],
-                        "color": "#303642",
-                    }
-                ],
-                "threshold": {
-                    "line": {"color": "#FFFFFF", "width": 4},
-                    "thickness": 0.8,
-                    "value": threshold_pct,
-                },
-            },
-        )
-    )
-
-    fig.update_layout(
-        height=260,
-        margin=dict(l=25, r=25, t=60, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        font={"color": "white"},
-    )
-
-    return fig
-
-# =========================================================
-# PAGE SETTINGS
-# =========================================================
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 st.set_page_config(
-    page_title="Sri Lanka Disaster Risk Prediction",
-    page_icon="🌧️",
-    layout="wide"
+    page_title="Sri Lanka | Disaster Risk Monitor",
+    page_icon="🌿",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
+
+CSS_PATH = Path(__file__).resolve().parent / "styles.css"
+if CSS_PATH.exists():
+    css = CSS_PATH.read_text(encoding="utf-8")
+    # Bundle scenic art directly into the stylesheet as data URIs.
+    # This avoids broken relative URLs when Streamlit serves the app.
+    
+    
+    for name, placeholder in (
+        ("highland_hero.webp", "__HERO_ART__"),
+        ("forest_panel.webp", "__FOREST_ART__"),
+        ("3.png", "__SIDEBAR_ART__"),
+        ("1.png", "__NEW_HERO_ART__"),
+        ("8.png", "__SRI_LANKA_ART__"),
+        ("9.png", "__DISTRICT_ART__"),
+        ("4.png", "__WEATHER_ART__"),
+        ("5.png", "__FLOOD_ART__"),
+        ("6.png", "__LANDSLIDE_ART__"),
+        ("7.png", "__OVERALL_ART__"),
+        ("9.png", "__REPORTS_ART__"),
+    ):
+        image_path = Path(__file__).resolve().parent / "assets" / name
+        if image_path.exists():
+            image_data = base64.b64encode(image_path.read_bytes()).decode("ascii")
+            css = css.replace(placeholder, f"data:image/{'png' if image_path.suffix.lower() == '.png' else 'webp'};base64,{image_data}")
+        else:
+            css = css.replace(placeholder, "none")
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+else:
+    st.warning("app/styles.css was not found. The app will use default Streamlit styling.")
+
+
+def create_probability_gauge(probability, threshold, title, color):
+    """Show the original model probability and its configured ML threshold."""
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=float(probability)*100,
+        number={"suffix":"%", "valueformat":".2f", "font":{"size":23,"color":"#E8EEE9"}},
+        title={"text":title,"font":{"size":12,"color":"#B0C0BB"}},
+        gauge={
+            "axis":{"range":[0,100],"tickcolor":"#82958F","tickfont":{"color":"#A4B8B1"}},
+            "bar":{"color":color,"thickness":0.26},
+            "bgcolor":"rgba(0,0,0,0)","borderwidth":0,
+            "steps":[{"range":[0,100],"color":"#273A3E"}],
+            "threshold":{"line":{"color":"#EBE9D7","width":3},"thickness":0.8,"value":threshold*100},
+        },
+    ))
+    fig.update_layout(height=192,margin=dict(l=5,r=5,t=40,b=0),
+                      paper_bgcolor="rgba(0,0,0,0)",font={"color":"#E8EEE9"})
+    return fig
+
+
+def panel_heading(eyebrow, heading, detail=""):
+    eyebrow = html.escape(eyebrow)
+    heading = html.escape(heading)
+    detail = html.escape(detail)
+    st.markdown(
+        f'<div class="panel-heading"><span class="eyebrow">{eyebrow}</span>'
+        f'<h2>{heading}</h2><p>{detail}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def risk_card(label, level, supporting):
+    safe_level = html.escape(str(level).upper())
+    cls = {"LOW":"low","MEDIUM":"medium","HIGH":"high"}.get(safe_level,"unknown")
+    st.markdown(
+        f'<div class="risk-card {cls}"><div class="risk-label">{html.escape(label)}</div>'
+        f'<div class="risk-value">{safe_level}</div>'
+        f'<div class="risk-support">{html.escape(supporting)}</div></div>',
+        unsafe_allow_html=True,
+    )
 
 # =========================================================
 # LOAD MODELS AND DATA
@@ -306,6 +328,12 @@ def predict_risk(
         "Mean_Slope_deg": slope
     }])
 
+    # Match the feature order saved with the trained models, if available.
+    if isinstance(features, (list, tuple, pd.Index, np.ndarray)):
+        trained_features = list(features)
+        if trained_features and set(trained_features) == set(input_data.columns):
+            input_data = input_data[trained_features]
+
     # Machine Learning
     flood_probability = flood_model.predict_proba(
         input_data
@@ -454,393 +482,610 @@ def generate_prediction_pdf(prediction_data):
     return pdf_bytes
 
 # =========================================================
-# USER INTERFACE
+# RESPONSIVE WEATHER-INTELLIGENCE DASHBOARD
 # =========================================================
 
-st.title("🌧️ Sri Lanka Flood & Landslide Risk Prediction")
-
-st.write(
-    "AI-based prototype combining Machine Learning, "
-    "Fuzzy Logic and Rule-Based Reasoning."
-)
-
-st.divider()
-
-# -------------------------
-# District
-# -------------------------
-
-districts = sorted(terrain["District"].unique())
-
-selected_district = st.selectbox(
-    "📍 Select District",
-    districts
-)
-
-district_info = terrain[
-    terrain["District"] == selected_district
-].iloc[0]
-
-elevation = float(
-    district_info["Mean_Elevation_m"]
-)
-
-slope = float(
-    district_info["Mean_Slope_deg"]
-)
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.metric(
-        "Mean Elevation",
-        f"{elevation:.1f} m"
-    )
-
-with col2:
-    st.metric(
-        "Mean Slope",
-        f"{slope:.1f}°"
-    )
-
-
-# ==========================================
-# Interactive Sri Lanka District Map
-# ==========================================
-
-st.divider()
-st.subheader("🗺️ Interactive District Map")
-
-st.write(
-    "Explore the selected district on the map "
-    "and view its terrain information."
-)
-
-show_district_map(selected_district)
-
-st.divider()
-
-# Default weather input values
 DEFAULT_WEATHER = {
     "rainfall_24h": 20.0,
     "rainfall_72h": 50.0,
     "rainfall_7day": 100.0,
     "mean_temp": 27.0,
     "dew_temp": 23.0,
-    "humidity": 80.0
+    "humidity": 80.0,
 }
-
-# Initialize weather input state
-for key, default in DEFAULT_WEATHER.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
+for _field, _default in DEFAULT_WEATHER.items():
+    st.session_state.setdefault(_field, _default)
 
 
 def reset_weather_inputs():
-    for key, default in DEFAULT_WEATHER.items():
-        st.session_state[key] = default
-
-st.subheader("🌦️ Weather Information")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-
-    rainfall_24h = st.number_input(
-    "Rainfall - Last 24 Hours (mm)",
-    min_value=0.0,
-    key="rainfall_24h",
-    step=1.0
-)
-
-    mean_temp = st.number_input(
-    "Mean Temperature (°C)",
-    min_value=-10.0,
-    max_value=50.0,
-    key="mean_temp",
-    step=0.1,
-    help="Enter the mean air temperature in degrees Celsius."
-)
+    for field, default in DEFAULT_WEATHER.items():
+        st.session_state[field] = default
+    st.session_state.pop("latest_assessment", None)
 
 
-with col2:
-
-    rainfall_72h = st.number_input(
-    "Rainfall - Last 72 Hours (mm)",
-    min_value=0.0,
-    key="rainfall_72h",
-    step=1.0
-)
-
-    dew_temp = st.number_input(
-    "Dew Point Temperature (°C)",
-    min_value=-10.0,
-    max_value=50.0,
-    key="dew_temp",
-    step=0.1,
-    help="Enter the dew point temperature in degrees Celsius."
-)
 
 
-with col3:
+# ==========================================
+# DISASTERWATCH SIDEBAR NAVIGATION
+# ==========================================
 
-    rainfall_7day = st.number_input(
-    "Rainfall - Last 7 Days (mm)",
-    min_value=0.0,
-    key="rainfall_7day",
-    step=1.0
-)
+with st.sidebar:
+    # One HTML block keeps the navigation list together for consistent styling.
+    # These are same-page anchors, not Streamlit multipage links.
+    nav_items = [
+        ("Dashboard", "dashboard", "⌂"),
+        ("Risk Prediction", "prediction", "▥"),
+        ("District Information", "district", "⌖"),
+        ("Model Insights", "insights", "◫"),
+        ("Reports", "reports", "▤"),
+        ("About System", "about", "ⓘ"),
+    ]
+    links = "".join(
+        f'<a class="nav-item {"active" if target == "dashboard" else ""}" '
+        f'href="#{target}"><span class="nav-icon" aria-hidden="true">{icon}</span>'
+        f'<span>{html.escape(label)}</span></a>'
+        for label, target, icon in nav_items
+    )
+    st.markdown(
+        """
+<div class="sidebar-brand">
+  <div class="brand-symbol">
+    <svg viewBox="0 0 100 80" width="76" height="65" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 65 L32 25 L48 45 L65 12 L96 65 Z" fill="#83C996"/>
+      <path d="M32 25 L42 40 L48 45 L39 47 Z" fill="#D5F1D5"/>
+      <path d="M65 12 L78 37 L69 33 L60 38 Z" fill="#D5F1D5"/>
+      <path d="M5 65 Q40 45 96 65 L96 73 L5 73 Z" fill="#256D60"/>
+    </svg>
+  </div>
+  <h2>DisasterWatch</h2>
+  <p>Sri Lanka</p>
+</div>
+<div class="sidebar-menu">
+""" + links + """
+</div>
+ <div class="sidebar-bottom">
+        <div class="sidebar-footer-content">
+            <svg width="30" height="36" viewBox="0 0 30 36"
+                 xmlns="http://www.w3.org/2000/svg"
+                 aria-hidden="true">
+                <path d="M15 31V13" stroke="#8FDE9E"
+                      stroke-width="2" stroke-linecap="round"/>
+                <path d="M15 20C5 19 3 11 7 5C15 6 19 13 15 20Z"
+                      fill="#70BA83"/>
+                <path d="M15 25C25 23 28 15 24 10C17 12 13 18 15 25Z"
+                      fill="#A5E4A9"/>
+                <path d="M15 17C9 9 7 7 7 5M15 22L24 10"
+                      stroke="#285F47" stroke-width="1.2"/>
+            </svg>
+            <p>AI-powered<br>
+            Flood &amp; Landslide<br>
+            Risk Prediction System</p>
+        </div>
+        <div class="sidebar-progress">
+            <div class="sidebar-progress-fill"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    humidity = st.number_input(
-    "Relative Humidity (%)",
-    min_value=0.0,
-    max_value=100.0,
-    key="humidity",
-    step=1.0
-)
-    # Reset weather inputs
-st.button(
-    "🔄 Reset Weather Inputs",
-    on_click=reset_weather_inputs,
-    use_container_width=True
-)
+
+# Scoped navigation styles complement the existing app/styles.css.
+st.markdown("""
+<style>
+section[data-testid="stSidebar"] .sidebar-menu {display:flex;flex-direction:column;gap:5px;margin-top:10px}
+section[data-testid="stSidebar"] .nav-item {display:flex;align-items:center;gap:14px;min-height:44px;padding:11px 15px;border-radius:9px;color:#D8E8E3!important;text-decoration:none!important;font-weight:500;font-size:14px}
+section[data-testid="stSidebar"] .nav-item:hover {background:rgba(79,151,123,.22)}
+section[data-testid="stSidebar"] .nav-item.active {background:linear-gradient(90deg,#287557,#175246);border-left:3px solid #AFE8B0;color:white!important}
+section[data-testid="stSidebar"] .nav-icon {display:inline-flex;width:21px;align-items:center;justify-content:center;font-size:20px;line-height:1;color:#B9E4CD}
+@media(max-width:768px){section[data-testid="stSidebar"] .nav-item{min-height:46px}}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div id="dashboard"></div>', unsafe_allow_html=True)
 
 
-st.divider()
+
+
+
+
+# ==========================================
+# DISASTERWATCH CINEMATIC HERO
+# ==========================================
+
+from textwrap import dedent
+
+hero_html = dedent("""
+<div class="hero hero-premium">
+    <div class="hero-main">
+        <div class="hero-eyebrow">
+            ENVIRONMENTAL INTELLIGENCE PLATFORM
+        </div>
+
+        <h1>Sri Lanka DisasterWatch</h1>
+
+        <p class="hero-subtitle">
+            Flood and Landslide Risk Prediction using
+            Machine Learning and Environmental Data
+        </p>
+
+        <div class="hero-underline"></div>
+
+        <p class="hero-description">
+            Analyze environmental conditions, terrain
+            information and machine learning models to
+            assess flood and landslide risk across
+            Sri Lankan districts.
+        </p>
+    </div>
+
+    <div class="hero-country-card">
+        <div class="hero-country-image"></div>
+
+        <div class="hero-country-copy">
+            <span>SRI LANKA</span>
+            <div class="country-underline"></div>
+            <p>
+                Safer Communities<br>
+                Through Data<br>
+                and AI
+            </p>
+        </div>
+    </div>
+</div>
+""").strip()
+
+st.html(hero_html)
+
+
+
+
 
 # =========================================================
-# PREDICTION BUTTON
+# DISTRICT OVERVIEW & DISTRICT INFORMATION
 # =========================================================
 
-if st.button(
-    "🔍 Predict Disaster Risk",
-    type="primary",
-    use_container_width=True
-):
+st.html('<div id="district"></div>')
 
-    # Check weather input consistency
+districts = sorted(terrain["District"].dropna().unique())
+
+overview_col, info_col = st.columns([1, 1], gap="small")
+
+
+with overview_col:
+    with st.container(border=True, key="district_overview"):
+
+        title_col, select_col = st.columns(
+            [1.6, 1],
+            gap="small",
+            vertical_alignment="center"
+        )
+
+        with title_col:
+            st.html("""
+<div class="district-panel-heading">
+    <span class="district-heading-icon">⌖</span>
+    <div>
+        <h3>District Overview</h3>
+        <p>Select a district to view its location on the map.</p>
+    </div>
+</div>
+""")
+
+        with select_col:
+            selected_district = st.selectbox(
+                "Select District",
+                districts,
+                format_func=lambda d: str(d).title(),
+                key="selected_district"
+            )
+
+        district_info = terrain.loc[
+            terrain["District"] == selected_district
+        ].iloc[0]
+
+        elevation = float(district_info["Mean_Elevation_m"])
+        slope = float(district_info["Mean_Slope_deg"])
+
+        show_district_map(
+            selected_district,
+            map_key="ui_overview_map",
+            map_height=260
+        )
+
+
+with info_col:
+    with st.container(border=True, key="district_information"):
+
+        st.html("""
+<div class="district-panel-heading">
+    <span class="district-heading-icon">▥</span>
+    <div>
+        <h3>District Information</h3>
+        <p>Key terrain characteristics of the selected district.</p>
+    </div>
+</div>
+""")
+
+        st.metric("Elevation", f"{elevation:.1f} m")
+        st.metric("Mean Slope", f"{slope:.1f}°")
+
+        st.caption(
+            "Terrain measurements are district-level averages "
+            "from the project dataset."
+        )
+
+# =========================================================
+# ENVIRONMENTAL INPUTS CONTINUE BELOW
+# =========================================================
+
+
+
+# =========================================================
+# ENVIRONMENTAL DATA — PREMIUM DASHBOARD
+# =========================================================
+
+st.html('<div id="prediction"></div>')
+
+with st.container(border=True, key="environmental_data"):
+
+    st.html("""
+<div class="environment-heading">
+    <span class="environment-icon">☁</span>
+    <div>
+        <h3>Environmental Data</h3>
+        <p>Enter rainfall and atmospheric measurements to generate a disaster risk prediction.</p>
+    </div>
+</div>
+""")
+
+    rainfall_col, atmosphere_col, actions_col = st.columns(
+        [4.2, 4.2, 2.3],
+        gap="small",
+        vertical_alignment="bottom"
+    )
+    with rainfall_col:
+        with st.container(border=True, key="rainfall_panel"):
+            st.markdown("**Rainfall Measurements**")
+
+            rain1, rain2, rain3 = st.columns(3, gap="small")
+
+            with rain1:
+                rainfall_24h = st.number_input(
+                    "Last 24 Hours (mm)",
+                    min_value=0.0,
+                    step=1.0,
+                    key="rainfall_24h"
+                )
+
+            with rain2:
+                rainfall_72h = st.number_input(
+                    "Last 72 Hours (mm)",
+                    min_value=0.0,
+                    step=1.0,
+                    key="rainfall_72h"
+                )
+
+            with rain3:
+                rainfall_7day = st.number_input(
+                    "Last 7 Days (mm)",
+                    min_value=0.0,
+                    step=1.0,
+                    key="rainfall_7day"
+                )
+
+    with atmosphere_col:
+        with st.container(border=True, key="atmosphere_panel"):
+            st.markdown("**Atmospheric Conditions**")
+
+            atm1, atm2, atm3 = st.columns(3, gap="small")
+
+            with atm1:
+                mean_temp = st.number_input(
+                    "Mean Temperature (°C)",
+                    min_value=-10.0,
+                    max_value=50.0,
+                    step=0.1,
+                    key="mean_temp"
+                )
+
+            with atm2:
+                dew_temp = st.number_input(
+                    "Dew Point (°C)",
+                    min_value=-10.0,
+                    max_value=50.0,
+                    step=0.1,
+                    key="dew_temp"
+                )
+
+            with atm3:
+                humidity = st.number_input(
+                    "Relative Humidity (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="humidity"
+                )
+
+    with actions_col:
+        st.button(
+            "Reset Inputs",
+            on_click=reset_weather_inputs,
+            use_container_width=True,
+            key="weather_reset_button"
+        )
+
+        run_prediction = st.button(
+            "Generate Risk Assessment",
+            type="primary",
+            use_container_width=True,
+            key="weather_predict_button"
+        )
+
+current_inputs = (str(selected_district), rainfall_24h, rainfall_72h, rainfall_7day,
+                  mean_temp, dew_temp, humidity, elevation, slope)
+if run_prediction:
+    problems = []
     if dew_temp > mean_temp:
-        st.warning(
-            "The dew point temperature is higher than the mean "
-            "air temperature. Please verify your weather inputs."
-        )
-            # Check rainfall input consistency
+        problems.append("Dew point exceeds mean temperature. Check your atmospheric measurements.")
     if rainfall_24h > rainfall_72h:
-        st.warning(
-            "The 24-hour rainfall exceeds the 72-hour rainfall. "
-            "Please verify your rainfall inputs."
-        )
-
+        problems.append("24-hour accumulated rainfall cannot exceed the 72-hour total for the same period.")
     if rainfall_72h > rainfall_7day:
-        st.warning(
-            "The 72-hour rainfall exceeds the 7-day rainfall. "
-            "Please verify your rainfall inputs."
-        )
+        problems.append("72-hour accumulated rainfall cannot exceed the 7-day total for the same period.")
+    if problems:
+        for issue in problems:
+            st.warning(issue)
+        st.session_state.pop("latest_assessment", None)
+    else:
+        prediction = predict_risk(rainfall_24h,rainfall_72h,rainfall_7day,
+                                  mean_temp,dew_temp,humidity,elevation,slope)
+        timestamp = datetime.now(ZoneInfo("Asia/Colombo"))
+        st.session_state["latest_assessment"] = {
+            "inputs": current_inputs,
+            "result": prediction,
+            "prediction_time": timestamp,
+        }
 
-    result = predict_risk(
-        rainfall_24h,
-        rainfall_72h,
-        rainfall_7day,
-        mean_temp,
-        dew_temp,
-        humidity,
-        elevation,
-        slope
+
+# Sidebar anchors are available even before the first assessment.
+st.html('<div id="insights"></div><div id="reports"></div>')
+
+assessment = st.session_state.get("latest_assessment")
+
+if assessment and assessment["inputs"] != current_inputs:
+    st.info(
+        "Your district or weather inputs have changed. "
+        "Generate a new assessment to update the results."
     )
-    st.subheader("Prediction Results")
+    assessment = None
 
+if assessment:
+    result = assessment["result"]
+    prediction_time = assessment["prediction_time"]
 
-    # ==========================================
-    # AI Risk Visualization on District Map
-    # ==========================================
-
-    st.markdown("### 🗺️ Predicted Disaster Risk Map")
-
-    st.write(
-        "The marker shows the selected district and "
-        "its predicted flood and landslide risk levels."
-    )
-
-    show_district_map(
-        selected_district,
-        flood_risk=result["flood_risk"],
-        landslide_risk=result["landslide_risk"]
-    )
-
-        # Display prediction generation time in Sri Lanka
-    prediction_time = datetime.now(
-        ZoneInfo("Asia/Colombo")
-    )
-
-    st.caption(
-        "🕒 Prediction generated on: "
-        + prediction_time.strftime("%d %B %Y, %I:%M:%S %p")
-        + " (Sri Lanka Time)"
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.metric(
-            "🌊 Flood Risk",
-            result["flood_risk"]
-        )
-
-        st.write(
-            "ML Probability:",
-            f'{result["flood_probability"] * 100:.2f}%'
-        )
-
-        st.write(
-            "Fuzzy Risk Score:",
-            result["flood_score"]
-        )
-
-
-    with col2:
-
-        st.metric(
-            "⛰️ Landslide Risk",
-            result["landslide_risk"]
-        )
-
-        st.write(
-            "ML Probability:",
-            f'{result["landslide_probability"] * 100:.2f}%'
-        )
-
-        st.write(
-            "Fuzzy Risk Score:",
-            result["landslide_score"]
-        )
-
-
-    st.divider()
-
-    st.subheader("🚨 Overall Disaster Risk")
+    # =====================================================
+    # PREDICTION RESULTS AND PREDICTED DISASTER RISK MAP
+    # =====================================================
 
     overall = result["overall_risk"]
 
-    if overall == "HIGH":
 
-        st.error(
-            "🔴 HIGH RISK"
-        )
-
-        st.warning(
-            "Potential hazardous conditions detected. "
-            "Follow official disaster-management and "
-            "local authority warnings."
-        )
-
-    elif overall == "MEDIUM":
-
-        st.warning(
-            "🟠 MEDIUM RISK"
-        )
-
-        st.info(
-            "Conditions indicate increased risk. "
-            "Continue monitoring rainfall and official warnings."
-        )
-
-    else:
-
-        st.success(
-            "🟢 LOW RISK"
-        )
-
-        st.info(
-            "Current inputs indicate relatively low risk, "
-            "but conditions may change."
-        )
-
-
-    st.write(
-        "**Rule-Based Rainfall Status:**",
-        result["nbro_warning"]
-    )
-
-        # =====================================================
-    # NEW: AI PREDICTION RESULTS - PROBABILITY GAUGES
-    # =====================================================
-
-    st.divider()
-    st.subheader("🧠 AI Prediction Results")
-
-    st.caption(
-        "Random Forest probabilities, fuzzy logic scores "
-        "and final risk classifications."
-    )
-
-    flood_col, landslide_col = st.columns(2)
-
-    risk_colors = {
-        "LOW": "#22C55E",
-        "MEDIUM": "#F59E0B",
-        "HIGH": "#EF4444"
+    risk_messages = {
+        "LOW": "Current inputs indicate relatively low estimated flood and landslide risk.",
+        "MEDIUM": "Current inputs indicate elevated disaster risk. Monitor official warnings.",
+        "HIGH": "Current inputs indicate high disaster risk. Follow official safety instructions."
     }
 
-    # FLOOD GAUGE
-    with flood_col:
-        st.plotly_chart(
-            create_probability_gauge(
-                probability=result["flood_probability"],
-                threshold=0.70,
-                title="🌊 Flood Prediction (Random Forest)",
-                color="#22C55E" if result["flood_probability"] < 0.50 else (
-    "#F59E0B" if result["flood_probability"] < 0.70 else "#EF4444"
-)
-            ),
-            use_container_width=True
-        )
+    def risk_colour(level):
+        return {
+            "LOW": "#80E49C",
+            "MEDIUM": "#FFD166",
+            "HIGH": "#FF756E"
+        }.get(str(level).upper(), "#FFFFFF")
 
-        st.metric(
-            "Flood Fuzzy Score",
-            f'{result["flood_score"]:.2f}'
-        )
-
-        st.metric(
-            "Final Flood Risk",
-            result["flood_risk"]
-        )
-
-    # LANDSLIDE GAUGE
-    with landslide_col:
-        st.plotly_chart(
-            create_probability_gauge(
-                probability=result["landslide_probability"],
-                threshold=0.80,
-                title="⛰️ Landslide Prediction (Random Forest)",
-                color="#22C55E" if result["landslide_probability"] < 0.50 else (
-    "#F59E0B" if result["landslide_probability"] < 0.80 else "#EF4444"
-)
-            ),
-            use_container_width=True
-        )
-
-        st.metric(
-            "Landslide Fuzzy Score",
-            f'{result["landslide_score"]:.2f}'
-        )
-
-        st.metric(
-            "Final Landslide Risk",
-            result["landslide_risk"]
-        )
-
-    st.caption(
-        "Gauge values represent machine learning probabilities. "
-        "Final risk classifications also consider fuzzy logic "
-        "and rule-based rainfall reasoning."
+    prediction_col, risk_map_col = st.columns(
+        [1.65, 1],
+        gap="small"
     )
+
+    # -----------------------------------------------------
+    # LEFT: PREDICTION RESULTS
+    # -----------------------------------------------------
+
+    with prediction_col:
+        with st.container(border=True, key="prediction_results_panel"):
+
+            st.html("""
+<div class="prediction-panel-heading">
+    <span class="prediction-heading-icon">&#9638;</span>
+    <div>
+        <h3>Prediction Results</h3>
+        <p>AI-generated disaster risk assessment for the selected district.</p>
+    </div>
+</div>
+""")
+
+            flood_col, landslide_col, overall_col = st.columns(
+                3, gap="small"
+            )
+
+            with flood_col:
+                st.html(f"""
+<div class="visual-risk-card flood-risk-card">
+    <div class="visual-risk-title">Flood Risk</div>
+    <div class="visual-risk-level"
+         style="color:{risk_colour(result['flood_risk'])}">
+        {html.escape(result['flood_risk'])}
+    </div>
+    <div class="visual-risk-details">
+        <div>ML Probability:
+            <strong>{result['flood_probability'] * 100:.2f}%</strong>
+        </div>
+        <div>Fuzzy Risk Score:
+            <strong>{result['flood_score']:.2f}</strong>
+        </div>
+        <div>Final Classification:
+            <strong>{html.escape(result['flood_risk'])}</strong>
+        </div>
+    </div>
+</div>
+""")
+
+            with landslide_col:
+                st.html(f"""
+<div class="visual-risk-card landslide-risk-card">
+    <div class="visual-risk-title">Landslide Risk</div>
+    <div class="visual-risk-level"
+         style="color:{risk_colour(result['landslide_risk'])}">
+        {html.escape(result['landslide_risk'])}
+    </div>
+    <div class="visual-risk-details">
+        <div>ML Probability:
+            <strong>{result['landslide_probability'] * 100:.2f}%</strong>
+        </div>
+        <div>Fuzzy Risk Score:
+            <strong>{result['landslide_score']:.2f}</strong>
+        </div>
+        <div>Final Classification:
+            <strong>{html.escape(result['landslide_risk'])}</strong>
+        </div>
+    </div>
+</div>
+""")
+
+            with overall_col:
+                st.html(f"""
+<div class="visual-risk-card overall-risk-card">
+    <div class="visual-risk-title">Overall Risk</div>
+    <div class="visual-risk-level"
+         style="color:{risk_colour(overall)}">
+        {html.escape(overall)}
+    </div>
+    <p class="visual-risk-summary">
+        {html.escape(risk_messages.get(overall, "Model-generated assessment."))}
+    </p>
+</div>
+""")
+
+            st.caption(
+                f"Assessment generated on "
+                f"{prediction_time:%d %B %Y, %I:%M %p} "
+                "(Sri Lanka Time)"
+            )
+
+    # -----------------------------------------------------
+    # RIGHT: PREDICTED DISASTER RISK MAP
+    # -----------------------------------------------------
+
+    with risk_map_col:
+        with st.container(border=True, key="predicted_risk_map_panel"):
+
+            st.html("""
+<div class="prediction-panel-heading">
+    <span class="prediction-heading-icon">&#9673;</span>
+    <div>
+        <h3>Predicted Disaster Risk Map</h3>
+        <p>Predicted flood and landslide risk at the selected district marker.</p>
+    </div>
+</div>
+""")
+
+            show_district_map(
+                selected_district,
+                flood_risk=result["flood_risk"],
+                landslide_risk=result["landslide_risk"],
+                map_key="ui_prediction_map",
+                map_height=260
+            )
+
+            st.html("""
+<div class="risk-map-legend">
+    <span><i class="legend-high"></i> High Risk</span>
+    <span><i class="legend-medium"></i> Medium Risk</span>
+    <span><i class="legend-low"></i> Low Risk</span>
+</div>
+""")
+
+            st.caption(
+                "The marker represents an approximate district centre, "
+                "not a mapped hazard zone."
+            )
+
+
     
-    # Prepare prediction results for CSV download
+    # ==========================================
+    # MODEL INSIGHTS — PREMIUM ANALYTICS
+    # ==========================================
+
+    insights_col, reports_col = st.columns(
+        [1.8, 1],
+        gap="small"
+    )
+
+    with insights_col:
+        with st.container(border=True, key="model_insights_panel"):
+
+            st.html("""
+<div class="insights-heading">
+    <span class="insights-icon">&#9783;</span>
+    <div>
+        <h3>Model Insights</h3>
+        <p>Machine learning probabilities and fuzzy risk analysis.</p>
+    </div>
+</div>
+""")
+
+            gauge1, gauge2 = st.columns(2, gap="small")
+
+            with gauge1:
+                with st.container(key="flood_gauge_panel"):
+                    st.plotly_chart(
+                        create_probability_gauge(
+                            result["flood_probability"],
+                            0.70,
+                            "Flood Probability",
+                            "#88D7A0"
+                        ),
+                        use_container_width=True,
+                        key="ui_flood_gauge"
+                    )
+
+            with gauge2:
+                with st.container(key="landslide_gauge_panel"):
+                    st.plotly_chart(
+                        create_probability_gauge(
+                            result["landslide_probability"],
+                            0.80,
+                            "Landslide Probability",
+                            "#88D7A0"
+                        ),
+                        use_container_width=True,
+                        key="ui_landslide_gauge"
+                    )
+
+            with st.container(key="fuzzy_scores_panel"):
+                st.markdown("**Fuzzy Logic Scores**")
+                fuzzy_flood, fuzzy_landslide = st.columns(2, gap="small")
+                with fuzzy_flood:
+                    st.caption(f'Flood: {result["flood_score"]:.2f} / 100')
+                    st.progress(min(1.0, max(0.0, result["flood_score"] / 100)))
+                with fuzzy_landslide:
+                    st.caption(f'Landslide: {result["landslide_score"]:.2f} / 100')
+                    st.progress(min(1.0, max(0.0, result["landslide_score"] / 100)))
+
+            st.markdown(
+                "**Rule-Based Rainfall Status:** "
+                f"{result['nbro_warning']}"
+            )
+
+            st.caption(
+                "Final risk classifications combine machine learning, "
+                "fuzzy logic, and rule-based reasoning."
+            )
+
+    # The Export Reports panel is placed in reports_col below.
+
+    
     prediction_data = {
-        "Prediction Time": prediction_time.strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
+        "Prediction Time": prediction_time.strftime("%Y-%m-%d %H:%M:%S"),
         "District": selected_district,
         "Rainfall 24h (mm)": rainfall_24h,
         "Rainfall 72h (mm)": rainfall_72h,
@@ -851,54 +1096,120 @@ if st.button(
         "Mean Elevation (m)": elevation,
         "Mean Slope (degrees)": slope,
         "Flood Risk": result["flood_risk"],
-        "Flood ML Probability (%)": round(
-            result["flood_probability"] * 100, 2
-        ),
+        "Flood ML Probability (%)": round(result["flood_probability"]*100,2),
         "Flood Fuzzy Score": result["flood_score"],
         "Landslide Risk": result["landslide_risk"],
-        "Landslide ML Probability (%)": round(
-            result["landslide_probability"] * 100, 2
-        ),
+        "Landslide ML Probability (%)": round(result["landslide_probability"]*100,2),
         "Landslide Fuzzy Score": result["landslide_score"],
         "Rule-Based Rainfall Status": result["nbro_warning"],
-        "Overall Disaster Risk": result["overall_risk"]
+        "Overall Disaster Risk": result["overall_risk"],
     }
+    with reports_col:
+        with st.container(border=True, key="export_reports_panel"):
+            st.html("""
+<div class="reports-heading">
+    <span class="reports-icon">&#8681;</span>
+    <div>
+        <h3>Export Reports</h3>
+        <p>Download your disaster risk assessment for documentation.</p>
+    </div>
+</div>
+""")
 
-        # Convert prediction data into CSV format
-    prediction_df = pd.DataFrame([prediction_data])
-    csv_data = prediction_df.to_csv(index=False).encode("utf-8-sig")
+            export1, export2 = st.columns(2, gap="small")
 
-    # Generate PDF report
-    pdf_data = generate_prediction_pdf(prediction_data)
+            with export1:
+                st.download_button(
+                    "Download CSV",
+                    data=pd.DataFrame([prediction_data]).to_csv(index=False).encode("utf-8-sig"),
+                    file_name="disaster_risk_prediction.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="export_csv",
+                    on_click="ignore"
+                )
 
-    # Create two columns for download buttons
-    col_csv, col_pdf = st.columns(2, gap="medium")
+            with export2:
+                st.download_button(
+                    "Download PDF",
+                    data=generate_prediction_pdf(prediction_data),
+                    file_name="disaster_risk_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="export_pdf",
+                    on_click="ignore"
+                )
 
-    # LEFT SIDE - CSV Download
-    with col_csv:
-        st.download_button(
-            label="📥 Download Prediction Results (CSV)",
-            data=csv_data,
-            file_name="disaster_risk_prediction.csv",
-            mime="text/csv",
-            use_container_width=True,
-            on_click="ignore"
-        )
+else:
+    st.markdown('<div class="empty-state"><span class="eyebrow">ASSESSMENT READY</span><h3>Generate a risk assessment</h3><p>Configure the environmental inputs above to view risk scores, model insights, geographic risk analysis and report downloads.</p></div>',unsafe_allow_html=True)
 
-    # RIGHT SIDE - PDF Download
-    with col_pdf:
-        st.download_button(
-            label="📄 Download Prediction Results (PDF)",
-            data=pdf_data,
-            file_name="disaster_risk_report.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-            on_click="ignore"
-        )
+# =========================================================
+# ABOUT SYSTEM — accessible from the sidebar navigation
+# =========================================================
+st.html("""
+<section id="about" class="about-section" aria-labelledby="about-title">
+    <div class="about-heading">
+        <div class="about-icon" aria-hidden="true">ⓘ</div>
+        <div>
+            <span class="about-eyebrow">ABOUT THE PLATFORM</span>
+            <h2 id="about-title">About DisasterWatch</h2>
+            <p>Environmental intelligence for flood and landslide risk assessment in Sri Lanka.</p>
+        </div>
+    </div>
 
-st.divider()
+    <p class="about-intro">
+        DisasterWatch is an academic research prototype that combines weather measurements,
+        district-level terrain data, machine-learning predictions, fuzzy logic, and rainfall-based
+        reasoning to estimate flood and landslide risk for a selected Sri Lankan district.
+    </p>
 
-st.caption(
-    "Academic prototype only. This system does not replace "
-    "official warnings issued by Sri Lankan authorities."
-)
+    <div class="about-grid">
+        <article class="about-card">
+            <div class="about-card-icon" aria-hidden="true">☁</div>
+            <h3>Environmental Inputs</h3>
+            <p>Uses rainfall over 24 hours, 72 hours and 7 days, temperature,
+               dew point, humidity, and district terrain characteristics.</p>
+        </article>
+        <article class="about-card">
+            <div class="about-card-icon" aria-hidden="true">◈</div>
+            <h3>Prediction Approach</h3>
+            <p>Combines two Random Forest prediction models with fuzzy risk scores
+               and a rainfall-based landslide warning rule.</p>
+        </article>
+        <article class="about-card">
+            <div class="about-card-icon" aria-hidden="true">⌖</div>
+            <h3>District Risk Map</h3>
+            <p>Displays the selected district's approximate centre and a marker
+               coloured by its estimated risk classification.</p>
+        </article>
+        <article class="about-card">
+            <div class="about-card-icon" aria-hidden="true">▤</div>
+            <h3>Insights &amp; Reports</h3>
+            <p>Shows model probabilities, fuzzy scores, rule-based rainfall status,
+               and downloadable CSV and PDF assessment reports.</p>
+        </article>
+    </div>
+
+    <div class="about-flow" aria-label="System workflow">
+        <div class="about-flow-title">HOW IT WORKS</div>
+        <div class="about-flow-steps">
+            <span>01 &nbsp; Select district</span>
+            <span class="about-flow-arrow" aria-hidden="true">→</span>
+            <span>02 &nbsp; Enter weather data</span>
+            <span class="about-flow-arrow" aria-hidden="true">→</span>
+            <span>03 &nbsp; Generate assessment</span>
+            <span class="about-flow-arrow" aria-hidden="true">→</span>
+            <span>04 &nbsp; Review &amp; export</span>
+        </div>
+    </div>
+
+    <div class="about-disclaimer">
+        <strong>Important:</strong> DisasterWatch provides model-generated estimates for
+        academic and informational purposes. It is not a live early-warning service and
+        must not replace official disaster alerts, evacuation instructions, or advice
+        from Sri Lankan authorities. District markers are not mapped hazard zones.
+    </div>
+</section>
+""")
+
+st.markdown('<div class="footer-note">ACADEMIC RESEARCH PROTOTYPE · Model-generated assessments are not official disaster warnings. Follow Sri Lankan disaster-management authorities for public safety decisions.</div>',unsafe_allow_html=True)
