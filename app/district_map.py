@@ -108,7 +108,7 @@ def show_district_map(
 
     st_folium(
         district_map,
-        width="stretch",
+        width=700,
         height=map_height,
         returned_objects=[],
         key=map_key,
